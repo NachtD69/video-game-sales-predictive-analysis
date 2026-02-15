@@ -1,0 +1,248 @@
+# PASO 1 (Cargar el DataSet y analisis inicial)
+
+  Se cargó el dataset y se realizó una exploración inicial para comprender la estructura de los datos, 
+  el número de filas y columnas, así como los tipos de datos y la presencia de valores ausentes.
+  Este paso es fundamental para identificar posibles problemas de calidad de datos y planear las 
+  transformaciones necesarias antes del análisis.
+
+# PASO 2 (Preparación de los datos)
+
+ ºReemplazo de Nombres de Columnas
+
+  Convertí todos los nombres de las columnas a minúsculas para mantener consistencia y facilitar el manejo del código 
+  (por ejemplo, evita errores de mayúsculas/minúsculas al referenciar columnas). 
+
+ ºConversión de Datos a Tipos Necesarios
+
+ Analicé los tipos de datos originales y realicé conversiones donde era apropiado para mejorar la precisión y el análisis numérico. 
+ Aquí detallo las columnas afectadas y el porqué de cada cambio:
+
+  year_of_release: 
+
+   Originalmente era float (e.g., 2006.0), lo convertí a tipo entero (Int64, que maneja valores nulos). 
+     º ¿Por qué? Los años de lanzamiento son valores enteros naturales (sin decimales), lo que facilita filtros por año y reduce el uso de memoria. 
+       Usé Int64 para no perder los valores nulos existentes.
+
+   critic_score: Estaba como float, pero lo aseguré como numérico (pd.to_numeric) para manejar cualquier inconsistencia. 
+     º ¿Por qué? Representa puntuaciones de críticos en una escala de 0-100, que son numéricas y permiten cálculos como promedios o correlaciones en análisis posteriores.
+       user_score: Originalmente object (mezcla de números y strings como 'tbd'), lo convertí a float después de manejar 'tbd'. 
+
+     º ¿Por qué? Es una puntuación numérica de usuarios (escala 0-10), similar a critic_score, y convertirla permite operaciones matemáticas. 
+       Sin esto, no podríamos analizar tendencias en reseñas.
+
+
+ ºTratamiento de Valores Ausentes
+
+  Decidí no rellenar los valores ausentes en esta etapa inicial, dejándolos como NaN (nulos) para preservar la integridad de los datos originales. 
+  Esto nos permite decidir más adelante, durante el análisis, si imputamos (e.g., con medias) o filtramos filas según el contexto específico 
+  (por ejemplo, al crear perfiles por región o probar hipótesis). Rellenar prematuramente podría introducir sesgos, como asumir un score promedio para juegos sin reseñas.
+
+     ºExplicación de por qué los dejé en blanco: 
+       Para columnas como critic_score y user_score (con ~51% y ~54% de ausentes respectivamente), rellenar con ceros o medias podría distorsionar análisis 
+       (e.g., un juego sin reseñas no es necesariamente "malo"). Para year_of_release (~1.6% ausentes), 
+       dejarlos permite dropear solo esas filas si analizamos tendencias temporales. Genre y name tienen muy pocos ausentes (~2), así que no impactan mucho. 
+       En ventas, no hay ausentes, lo cual es ideal para nuestro foco en regiones.
+
+      ºPosibles razones por las que los valores están ausentes:
+       Juegos antiguos o independientes: Muchos títulos de plataformas viejas (e.g., NES, GB) 
+       no tienen scores porque no existían sistemas de reseñas modernas como Metacritic en esa época.
+       Datos incompletos de fuentes: El dataset podría provenir de agregadores como VGChartz o Wikipedia, 
+       donde no todos los juegos tienen reseñas de críticos/usuarios o ratings ESRB registrados.
+       Lanzamientos regionales limitados: Algunos juegos no se lanzaron en todas las regiones, pero las ventas ausentes son cero implícito (no hay NaN en ventas, solo 0.0).
+       Errores de recolección: Posiblemente scraping o fusión de datos incompleta, o juegos cancelados/no oficiales.
+       Ratings y scores pendientes: Para juegos nuevos en el dataset (hasta 2016), algunos podrían no tener ratings finales.
+
+ ºManejo específico de 'TBD': 
+  Esta abreviatura aparece en user_score y significa "to be determined" 
+  (puntuaciones pendientes, comunes en juegos recientes sin suficientes reseñas de usuarios). 
+  Lo manejé reemplazándolo por NaN antes de convertir la columna a float. ¿Por qué? 'TBD' no es un valor numérico válido, 
+  y tratarlo como nulo evita errores en cálculos (e.g., promedios). Hay ~2,421 casos de 'TBD', que ahora son NaN, 
+  permitiendo análisis sin distorsiones (podemos ignorarlos o imputar más adelante si es relevante para hipótesis sobre reseñas).
+
+ Cálculo de Ventas Totales
+  Agregué una nueva columna llamada "total_sales", que es la suma de na_sales + eu_sales + jp_sales + other_sales para cada juego. 
+  Esto representa las ventas globales en millones de unidades, facilitando comparaciones y rankings (e.g., top juegos para Ice). 
+  Por ejemplo, Wii Sports ahora tiene 82.54 en total_sales.
+
+
+Después de estos cambios, el dataset tiene 16,715 filas y 12 columnas (incluyendo total_sales). 
+No perdi filas significativas, y los tipos son óptimos. 
+
+
+# PASO 3 (Ánalisis de los datos)
+
+Una vez completada la limpieza y preparación de los datos, se realizó un análisis exploratorio para comprender 
+la evolución del mercado de videojuegos y detectar patrones relevantes.
+
+ ºAnalisis de ventas
+
+  En primer lugar, se analizaron las ventas totales por año mediante una gráfica, lo que permitió identificar tendencias generales en el mercado.
+  Se observó un pico significativo de ventas entre 2008 y 2012, periodo que coincide con la alta popularidad de varias consolas y títulos de gran impacto.
+
+  Adicionalmente, se identificó el Top 10 de juegos por ventas a lo largo de todo el período disponible, con el objetivo de detectar títulos que pudieron haber 
+  influido de manera significativa en el desempeño comercial de ciertas plataformas.
+
+  Posteriormente, el análisis se concentró en períodos más recientes, reduciendo el enfoque a lapsos específicos (incluidos los últimos años disponibles) para
+  observar con mayor claridad las ventas totales por plataforma y las consolas destacadas en cada período.
+  Este enfoque permitió explorar si existe una relación entre el lanzamiento de títulos exitosos y el crecimiento de ventas de una consola, o si el éxito 
+  de la plataforma precede al de los videojuegos.
+
+ ºDistribucion de ventas por plataforma
+
+  Se construyó un diagrama de caja (boxplot) para analizar la distribución de las ventas globales por plataforma.
+  Este método permitió identificar:
+
+   ºLa dispersión de las ventas,
+   ºla presencia de valores atípicos (juegos con ventas excepcionalmente altas),
+   ºy diferencias en el comportamiento promedio entre plataformas.
+
+El análisis mostró que, aunque algunas plataformas presentan ventas medias similares, existen diferencias relevantes en la variabilidad y en la presencia de títulos 
+extraordinariamente exitosos.
+
+ ºImpacto de las reseñas en las ventas
+
+  Se analizó la relación entre las puntuaciones de reseñas (usuarios y críticos) y las ventas, con el objetivo de evaluar si existe una asociación entre la percepción 
+  del público o de los especialistas y el desempeño comercial de los juegos.
+  Para este análisis se eligió la plataforma PS4, debido a que:
+
+   ºes una de las plataformas con mayores ventas durante el período más reciente (2011–2016),
+   ºcuenta con un volumen suficiente de juegos y reseñas, lo que permite obtener resultados estadísticamente confiables,
+   ºy representa una plataforma activa en el mercado en el momento que se desea modelar (2017).
+
+Plataformas más antiguas, como PS2 o Xbox 360, fueron descartadas para este análisis específico debido a la alta proporción de valores ausentes en las reseñas, lo que podría sesgar los resultados.
+De igual forma, plataformas con menor participación de mercado no cuentan con un volumen suficiente de datos para generar conclusiones robustas.
+
+# PASO 4 (Perfiles de usuarios por region)
+
+ Variaciones en Cuotas de Mercado entre Regiones:
+
+  ºDominio Regional: 
+    En NA y EU, Microsoft (X360/XOne) tiene cuotas sólidas (23.7% en NA para X360 vs. 14.7% en EU), reflejando lealtad en NA (posiblemente por Xbox Live y exclusivos como Halo). 
+    Sony (PS3/PS4) lidera en EU (27.8% para PS4 vs. 18.4% en NA), quizás por marketing fuerte en Europa y preferencia por series como FIFA/Gran Turismo.
+
+  ºContraste con JP: 
+    Nintendo arrasa (45.6% para 3DS), con portátiles como PSV (10.9%) destacando, mientras consolas caseras de Microsoft son inexistentes en top 5. 
+    Esto indica preferencia por movilidad y juegos japoneses (e.g., Pokémon en 3DS). Sony aún presente, pero cuotas bajas (8.3% para PS4 vs. 27.8% en EU), 
+    sugiriendo mercado localista.
+
+  ºTendencias Generales: 
+    Transición a nueva gen (PS4/XOne) es más rápida en NA/EU (cuotas ~18-28%), pero lenta en JP (dominada por 3DS/PS3). 
+    Variaciones totales: NA equilibrado entre Sony/Microsoft (suma ~70%), EU Sony-céntrico (~49%), JP Nintendo-céntrico (~52%).
+    Para Ice, implica stock regional: más Xbox en NA, PlayStation en EU, Nintendo en JP.
+
+ Generos principales
+
+Diferencias Explicadas:
+
+  ºSimilitudes NA/EU: 
+    Ambas priorizan Action (30-31%) y Shooter (22-24%), indicando mercado occidental enfocado en adrenalina y online (e.g., COD, GTA). 
+    Sports alto en ambas (13-14%), pero más en EU por cultura futbolera.
+
+  ºContraste con JP: 
+    RPGs dominan (34% vs. ~10% en NA/EU), reflejando preferencia por historias profundas y JRPGs (e.g., Pokémon, Final Fantasy en 3DS). 
+    Action es común (27%), pero Shooter casi ausente (cuota <1%), 
+    posiblemente por sensibilidad cultural a violencia. Géneros nicho como Simulation/Fighting emergen en JP (5-6%), 
+    ausentes en tops occidentales, sugiriendo mercado más variado pero portátil-centrado.
+
+  ºImplicaciones para Ice: 
+    En NA/EU, stockear Action/Shooter para ventas rápidas; en JP, RPGs para lealtad. 
+    Diferencias ~20-30% en cuotas clave (e.g., RPGs JP vs. Shooter NA) 
+    destacan segmentación: 
+      marketing global para Action, regional para nichos.
+
+Análisis de Impacto de Clasificaciones ESRB en Ventas por Región
+
+  Usando el código anterior (groupby por 'rating' para ventas promedio por juego, en 2012-2016), 
+  evaluamos si ESRB afecta ventas. 
+  ESRB clasifica: E (Everyone), E10+ (10+), T (Teen), M (Mature 17+), etc. 
+  Incluí 'Unknown' para juegos sin rating (posiblemente importados o antiguos).
+
+
+  º¿Afectan las Clasificaciones ESRB a las Ventas?:
+
+    Sí, con variaciones regionales: En NA y EU, M (Mature) tiene promedios más altos (0.71M en NA, 0.61M en EU), 
+    sugiriendo que juegos violentos/adultos (e.g., GTA V, COD) venden mejor en Occidente, posiblemente por audiencia adulta y marketing. 
+    E/T/E10+ son moderados (0.3-0.4M), ideales para familias, pero no superan M.
+
+  ºEn JP: 
+  Impacto menor/diferente; Unknown lidera (0.13M), indicando muchos juegos locales sin ESRB (usando CERO japonés).
+  M bajo (0.08M), reflejando aversión cultural a violencia explícita; T (0.12M) y E (0.09M) cercanos, con preferencia por contenido accesible/portátil.
+
+  ºConclusiones Generales: 
+  
+   ESRB afecta positivamente ventas en NA/EU para M (aumenta ~2x vs. Unknown), 
+   pero en JP es neutral/irrelevante (Unknown alto, posiblemente por juegos no clasificados que son hits locales como Pokémon). Para Ice, 
+   priorizar M en NA/EU para maximizar ventas; en JP, ignorar ESRB y enfocarse en ratings locales o Unknown para stock.
+
+# PASO 5 (HIPOTESIS)
+
+Prueba de Hipótesis 1: Las calificaciones promedio de los usuarios para las plataformas Xbox One y PC son las mismas
+
+ Formulación de Hipótesis:
+
+  Hipótesis Nula (H0): 
+    Las calificaciones promedio de usuarios para Xbox One y PC son iguales (μ_XOne = μ_PC). 
+    Esto asume no hay diferencia significativa, posiblemente por similitudes en audiencia 
+    (jugadores de PC y consola en géneros como shooters).
+
+  Hipótesis Alternativa (H1): 
+    Las calificaciones promedio de usuarios para Xbox One y PC son diferentes 
+    (μ_XOne ≠ μ_PC). Un test de dos colas, ya que no especifica dirección (mayor/menor).
+
+  Resultados: 
+    Media XOne: 
+      6.52, Media PC: 6.43. Estadístico t: 0.60, p-value: 0.5490.
+       
+    Conclusión: 
+      Como p-value (0.5490) > alfa (0.05), no rechazamos H0. 
+      Las calificaciones promedio son estadísticamente iguales. Para Ice, implica que reseñas de usuarios 
+      no diferencian mucho estas plataformas; priorizar basados en ventas/región en lugar de scores.
+
+Prueba de Hipótesis 2: Las calificaciones promedio de los usuarios para los géneros de Acción y Deportes son diferentes
+
+ Formulación de Hipótesis:
+
+  Hipótesis Nula (H0): 
+    Las calificaciones promedio de usuarios para Acción y Deportes son iguales (μ_Action = μ_Sports). 
+    Asume similitud, quizás por appeal masivo en ambos.
+
+  Hipótesis Alternativa (H1): 
+    Las calificaciones promedio de usuarios para Acción y Deportes son diferentes 
+    (μ_Action ≠ μ_Sports). Dos colas, ya que indica "diferentes" sin dirección.
+
+Resultados: Media Acción: 6.83, Media Deportes: 5.46. Estadístico t: 9.90, p-value: 0.0000.
+
+Conclusión: Como p-value (0.0000) < alfa (0.05), rechazamos H0. 
+Las calificaciones promedio son estadísticamente diferentes (Acción más altas). 
+Para Ice, sugiere que Acción genera mejores reseñas (posiblemente por variedad/narrativa), 
+mientras Deportes podría tener críticas por realismo/actualizaciones; enfocar marketing en Acción para retención.
+
+Criterio Utilizado para Probar las Hipótesis
+Usé la prueba t de Student para muestras independientes (versión Welch, sin asumir varianzas iguales), 
+porque:
+ 
+ Los grupos son independientes (e.g., scores de XOne no afectan PC; Acción vs. Deportes son categorías separadas).
+ User_score es numérico y aproximadamente normal para muestras grandes (>30 por grupo, verificado: XOne ~159, PC ~194, Acción ~389, Deportes ~160).
+ Welch maneja varianzas desiguales (común en reseñas), reduciendo error. Si p-value < alfa, rechazamos H0; de lo contrario, no hay evidencia para diferencia. 
+ Esto es robusto para nuestro dataset, priorizando precisión sobre suposiciones estrictas (e.g., vs. Mann-Whitney si no normal).
+
+
+Conclusión General
+A lo largo de este proyecto se realizó un análisis integral del mercado de videojuegos utilizando datos históricos de ventas, plataformas, géneros, regiones y reseñas de usuarios y críticos. 
+Tras una etapa de limpieza y preparación de los datos, fue posible identificar patrones relevantes que permiten comprender mejor la evolución del mercado y apoyar la toma de decisiones comerciales.
+El análisis de ventas mostró que el mercado tuvo su punto más alto entre 2008 y 2012, impulsado por plataformas y títulos de gran impacto. 
+En los años más recientes, se observa una transición clara hacia nuevas generaciones de consolas, especialmente PS4 y Xbox One, aunque con diferencias importantes entre regiones. 
+Norteamérica y Europa presentan mercados relativamente similares, dominados por consolas de Sony y Microsoft y por géneros como Acción y Shooter, mientras que Japón se distingue por una 
+fuerte preferencia por plataformas portátiles y géneros como RPG.
+
+Asimismo, el estudio de reseñas indicó que existe una relación moderada entre la evaluación de los críticos y las ventas, particularmente en plataformas con suficiente volumen de datos como PS4. 
+Sin embargo, las calificaciones de usuarios no siempre muestran diferencias significativas entre plataformas, como se observó en la comparación entre Xbox One y PC. 
+En contraste, sí se encontraron diferencias claras en las calificaciones promedio entre géneros, destacando Acción sobre Deportes.
+El análisis de clasificaciones ESRB reveló que estas influyen de manera distinta según la región: en Norteamérica y Europa, los juegos clasificados como “Mature” tienden a generar mayores ventas promedio, 
+mientras que en Japón el impacto de ESRB es limitado, debido a preferencias culturales y al uso de sistemas de clasificación locales.
+
+En conjunto, los resultados sugieren que no existe una estrategia universal para el mercado de videojuegos, y que las decisiones deben adaptarse a las 
+particularidades regionales, al tipo de plataforma y a las preferencias de los usuarios. 
+Para Ice, este análisis proporciona una base sólida para planificar inventario, enfocar campañas de marketing y priorizar géneros y plataformas 
+según el mercado objetivo, reduciendo riesgos y maximizando oportunidades de venta.
+
